@@ -1,25 +1,86 @@
-/**
- * Google Apps Script backend for the Seshu Appana portfolio contact form.
- * Setup: create a Google Sheet, open Extensions > Apps Script, paste this file,
- * set SHEET_ID below, then Deploy > New deployment > Web app.
- * Execute as: Me. Who has access: Anyone. Copy the /exec URL into index.html.
- */
-const SHEET_ID = 'PASTE_YOUR_GOOGLE_SHEET_ID_HERE';
-const SHEET_NAME = 'Recruiter Contacts';
+
+const SHEET_ID = '1Qur3oC1A1FJagFIDAekfmZGzreSDTDtani4x1S2qiuA';
+const SHEET_NAME = 'Portfolio Recruiter Contact';
+
+function doGet() {
+  return ContentService.createTextOutput(
+    'Portfolio recruiter contact service is running.'
+  );
+}
+
 function doPost(e) {
+  const lock = LockService.getScriptLock();
+
   try {
-    const data = JSON.parse((e && e.postData && e.postData.contents) || '{}');
-    const required = ['name', 'email', 'subject', 'message'];
-    required.forEach(k => { if (!String(data[k] || '').trim()) throw new Error('Missing required field: ' + k); });
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(data.email))) throw new Error('Invalid email');
-    if (SHEET_ID === 'PASTE_YOUR_GOOGLE_SHEET_ID_HERE') throw new Error('Configure SHEET_ID first');
-    const ss = SpreadsheetApp.openById(SHEET_ID);
-    let sh = ss.getSheetByName(SHEET_NAME);
-    if (!sh) { sh = ss.insertSheet(SHEET_NAME); sh.appendRow(['Submitted At','Recruiter Name','Email','Company','Subject','Message','Source']); sh.setFrozenRows(1); }
-    sh.appendRow([new Date(), String(data.name).slice(0,200), String(data.email).slice(0,320), String(data.company || '').slice(0,200), String(data.subject).slice(0,300), String(data.message).slice(0,5000), String(data.source || '').slice(0,1000)]);
-    return ContentService.createTextOutput(JSON.stringify({ok:true})).setMimeType(ContentService.MimeType.JSON);
-  } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ok:false,error:String(err.message || err)})).setMimeType(ContentService.MimeType.JSON);
+    if (!e || !e.postData || !e.postData.contents) {
+      throw new Error('No contact data received.');
+    }
+
+    const data = JSON.parse(e.postData.contents);
+
+    const name = String(data.name || '').trim();
+    const email = String(data.email || '').trim();
+    const company = String(data.company || '').trim();
+    const message = String(data.message || '').trim();
+
+    if (!name || !email) {
+      throw new Error('Recruiter name and email are required.');
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new Error('Please provide a valid email address.');
+    }
+
+    lock.waitLock(10000);
+
+    const spreadsheet = SpreadsheetApp.openById(SHEET_ID);
+    let sheet = spreadsheet.getSheetByName(SHEET_NAME);
+
+    if (!sheet) {
+      sheet = spreadsheet.insertSheet(SHEET_NAME);
+    }
+
+    if (sheet.getLastRow() === 0) {
+      sheet.appendRow([
+        'Timestamp',
+        'Recruiter Name',
+        'Email',
+        'Company',
+        'Message'
+      ]);
+      sheet.setFrozenRows(1);
+    }
+
+    sheet.appendRow([
+      new Date(),
+      name,
+      email,
+      company,
+      message
+    ]);
+
+    SpreadsheetApp.flush();
+
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: true,
+        message: 'Contact saved successfully.'
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+
+  } catch (error) {
+    console.error('Contact form error: ' + error.message);
+
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        message: error.message
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+
+  } finally {
+    if (lock.hasLock()) {
+      lock.releaseLock();
+    }
   }
 }
-function doGet() { return ContentService.createTextOutput('Portfolio contact endpoint is running.'); }
