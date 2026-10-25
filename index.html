@@ -157,6 +157,72 @@ $('#bg').onclick=function(){const o=$('#lk').classList.toggle('o');this.setAttri
 addEventListener('scroll',()=>{$('#nav').classList.toggle('s',scrollY>40);let id='home';document.querySelectorAll('main section').forEach(s=>{if(s.getBoundingClientRect().top<140)id=s.id});document.querySelectorAll('.links a').forEach(a=>a.classList.toggle('on',a.getAttribute('href')=='#'+id))},{passive:true});
 const io=new IntersectionObserver(es=>es.forEach(e=>e.isIntersecting&&e.target.classList.add('v')),{threshold:.1});document.querySelectorAll('.rv').forEach(e=>io.observe(e));
 $('#yr').textContent=new Date().getFullYear();
+  // After deploying Code.gs as a Google Apps Script web app, paste its /exec URL below.
+const CONTACT_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzAGvrD27kunqPFaZbnZl1sh-p5D3WzFZFOwKsh4KqxmHuX8hAsR79zjbRTg_Ixro82/exec';
+const contactForm = $('#cf');
+const contactStatus = $('#fs');
+const submitButton = $('#sb');
+contactForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  let valid = true;
+  const validate = (id, label, isEmail = false) => {
+    const value = $('#' + id).value.trim();
+    let error = '';
+    if (!value) error = 'Please enter ' + label + '.';
+    else if (isEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) error = 'Please enter a valid email address.';
+    $('#e-' + id).textContent = error;
+    if (error) valid = false;
+  };
+  validate('n', 'your name');
+  validate('m', 'your email', true);
+  validate('s', 'a subject');
+  validate('g', 'a message');
+  if (!valid) {
+    contactStatus.textContent = 'Please correct the highlighted fields and try again.';
+    return;
+  }
+  if ($('#hp').value) return; // honeypot anti-spam field
+  if (submitButton.disabled) return;
+
+  const payload = {
+    name: $('#n').value.trim(),
+    email: $('#m').value.trim(),
+    company: $('#c').value.trim(),
+    subject: $('#s').value.trim(),
+    message: $('#g').value.trim(),
+    submittedAt: new Date().toISOString(),
+    source: location.href
+  };
+
+  if (!CONTACT_ENDPOINT || !CONTACT_ENDPOINT.endsWith('/exec')) {
+    contactStatus.textContent = 'Contact service is not configured. Please email seshuappana037@gmail.com directly.';
+    return;
+  }
+
+  submitButton.disabled = true;
+  submitButton.textContent = 'Submitting…';
+  contactStatus.textContent = 'Submitting your contact details…';
+  try {
+    // Apps Script web apps commonly do not expose CORS response headers to GitHub Pages.
+    // no-cors allows the POST to be sent, but the browser cannot read the server response.
+    await fetch(CONTACT_ENDPOINT, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+      body: JSON.stringify(payload),
+      redirect: 'follow'
+    });
+    contactStatus.textContent = 'The submission request was sent, but this page cannot verify that Google Sheets saved it. Please check the “Recruiter Contacts” tab. If no row appears, email seshuappana037@gmail.com and check Apps Script → Executions for a doPost error.';
+    // Keep the entered details until the user has confirmed that the row appeared.
+  } catch (err) {
+    console.error('Contact submission failed:', err);
+    contactStatus.textContent = 'The request could not be sent. Please email seshuappana037@gmail.com directly.';
+  } finally {
+    submitButton.disabled = false;
+    submitButton.textContent = 'Send Contact';
+  }
+});
+</script>
 <script>
 (function () {
   const SUPABASE_URL = 'https://qwwpirhkhzswundstfds.supabase.co';
