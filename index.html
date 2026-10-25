@@ -157,68 +157,107 @@ $('#bg').onclick=function(){const o=$('#lk').classList.toggle('o');this.setAttri
 addEventListener('scroll',()=>{$('#nav').classList.toggle('s',scrollY>40);let id='home';document.querySelectorAll('main section').forEach(s=>{if(s.getBoundingClientRect().top<140)id=s.id});document.querySelectorAll('.links a').forEach(a=>a.classList.toggle('on',a.getAttribute('href')=='#'+id))},{passive:true});
 const io=new IntersectionObserver(es=>es.forEach(e=>e.isIntersecting&&e.target.classList.add('v')),{threshold:.1});document.querySelectorAll('.rv').forEach(e=>io.observe(e));
 $('#yr').textContent=new Date().getFullYear();
-// After deploying Code.gs as a Google Apps Script web app, paste its /exec URL below.
-const CONTACT_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzAGvrD27kunqPFaZbnZl1sh-p5D3WzFZFOwKsh4KqxmHuX8hAsR79zjbRTg_Ixro82/exec';
-const contactForm = $('#cf');
-const contactStatus = $('#fs');
-const submitButton = $('#sb');
-contactForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  let valid = true;
-  const validate = (id, label, isEmail = false) => {
-    const value = $('#' + id).value.trim();
-    let error = '';
-    if (!value) error = 'Please enter ' + label + '.';
-    else if (isEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) error = 'Please enter a valid email address.';
-    $('#e-' + id).textContent = error;
-    if (error) valid = false;
-  };
-  validate('n', 'your name');
-  validate('m', 'your email', true);
-  validate('s', 'a subject');
-  validate('g', 'a message');
-  if (!valid) {
-    contactStatus.textContent = 'Please correct the highlighted fields and try again.';
-    return;
-  }
-  if ($('#hp').value) return; // honeypot anti-spam field
-  if (submitButton.disabled) return;
+<script>
+(function () {
+  const SUPABASE_URL = 'https://qwwpirhkhzswundstfds.supabase.co';
+  const SUPABASE_PUBLIC_KEY = 'sb_publishable_CXpOcH0nVFluzcKVb4XM-g_cv1booqS';
 
-  const payload = {
-    name: $('#n').value.trim(),
-    email: $('#m').value.trim(),
-    company: $('#c').value.trim(),
-    subject: $('#s').value.trim(),
-    message: $('#g').value.trim(),
-    submittedAt: new Date().toISOString(),
-    source: location.href
-  };
+  const form = document.getElementById('cf');
+  if (!form) return;
 
-  if (!CONTACT_ENDPOINT || !CONTACT_ENDPOINT.endsWith('/exec')) {
-    contactStatus.textContent = 'Contact service is not configured. Please email seshuappana037@gmail.com directly.';
-    return;
-  }
+  form.onsubmit = async function (event) {
+    event.preventDefault();
 
-  submitButton.disabled = true;
-  submitButton.textContent = 'Submitting…';
-  contactStatus.textContent = 'Submitting your contact details…';
-  try {
-    // Apps Script web apps commonly do not expose CORS response headers to GitHub Pages.
-    // no-cors allows the POST to be sent, but the browser cannot read the server response.
-    await fetch(CONTACT_ENDPOINT, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-      body: JSON.stringify(payload),
-      redirect: 'follow'
+    const get = id => document.getElementById(id);
+    const status = get('fs');
+    const button = get('sb');
+
+    const name = get('n').value.trim();
+    const email = get('m').value.trim();
+    const company = get('c').value.trim();
+    const subject = get('s').value.trim();
+    const message = get('g').value.trim();
+
+    // Simple honeypot check to discourage automated spam.
+    if (get('hp') && get('hp').value.trim()) return;
+
+    document.querySelectorAll('.er').forEach(el => {
+      el.textContent = '';
     });
-  } catch (err) {
-    console.error('Contact submission failed:', err);
-    contactStatus.textContent = 'The request could not be sent. Please email seshuappana037@gmail.com directly.';
-  } finally {
-    submitButton.disabled = false;
-    submitButton.textContent = 'Send Contact';
-  }
-});
+
+    let valid = true;
+
+    function error(id, text) {
+      get('e-' + id).textContent = text;
+      valid = false;
+    }
+
+    if (!name) error('n', 'Please enter your name.');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      error('m', 'Please enter a valid email address.');
+    }
+    if (!subject) error('s', 'Please enter a subject.');
+    if (!message) error('g', 'Please enter a message.');
+
+    if (!valid) return;
+
+    if (
+      SUPABASE_URL.includes('PASTE_YOUR_') ||
+      SUPABASE_PUBLIC_KEY.includes('PASTE_YOUR_')
+    ) {
+      status.textContent = 'Setup incomplete: add your Supabase URL and publishable key.';
+      return;
+    }
+
+    button.disabled = true;
+    status.textContent = 'Submitting your message...';
+
+    const payload = {
+      name,
+      email,
+      company,
+      subject,
+      message,
+      submitted_at: new Date().toISOString(),
+      source: window.location.href
+    };
+
+    try {
+      const response = await fetch(
+        SUPABASE_URL.replace(/\/$/, '') +
+          '/rest/v1/recruiter_contacts',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_PUBLIC_KEY,
+            'Authorization': 'Bearer ' + SUPABASE_PUBLIC_KEY,
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify(payload)
+        }
+      );
+
+      if (!response.ok) {
+        const details = await response.text();
+        throw new Error(details || 'Database rejected the submission.');
+      }
+
+      status.textContent =
+        'Thank you! Your message has been submitted successfully.';
+      form.reset();
+
+    } catch (err) {
+      console.error('Supabase contact submission failed:', err);
+      status.textContent =
+        'Sorry, your message could not be saved. Please try again or email seshuappana037@gmail.com directly.';
+    } finally {
+      button.disabled = false;
+    }
+  };
+
+  const button = document.getElementById('sb');
+  if (button) button.textContent = 'Send Contact';
+})();
 </script>
 </body></html>
