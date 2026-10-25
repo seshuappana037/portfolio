@@ -212,7 +212,6 @@ contactForm.addEventListener('submit', async (e) => {
       body: JSON.stringify(payload),
       redirect: 'follow'
     });
-    contactStatus.textContent = 'The submission request was sent, but this page cannot verify that Google Sheets saved it. Please check the “Recruiter Contacts” tab. If no row appears, email seshuappana037@gmail.com and check Apps Script → Executions for a doPost error.';
     // Keep the entered details until the user has confirmed that the row appeared.
   } catch (err) {
     console.error('Contact submission failed:', err);
